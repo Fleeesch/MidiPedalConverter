@@ -1239,6 +1239,20 @@ void PedalInterface::_checkConnection()
 void PedalInterface::analyzePedalType()
 {
 
+  // [!] this one's a hack since pedal-type detection is not working reliably
+
+  switch (index){
+    case 0:
+      setModeSustain();
+    break;
+    case 1:
+      setModeExpression();
+    break;
+
+  }
+
+  return; // ---> Skip the Rest
+
   audio_jack->setupControlVoltage();
 
   // check for volume pedal
@@ -1364,8 +1378,7 @@ void PedalInterface::sendMidiInfoMessage(int message)
     break;
   }
 
-  // send system exclusive
-  // MidiHandler::sendSysExToAllPorts(message_out, msg_l);
+
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~

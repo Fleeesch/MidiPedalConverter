@@ -221,7 +221,7 @@ void PedalInterface::setModeControlVoltage()
 
   _storeMode(MODE_CONTROL_VOLTAGE);
   audio_jack->setupControlVoltage();
-
+  
   // redirect pedal
   pedal = &pedal_expression;
   pedal->reset();
@@ -310,13 +310,27 @@ void PedalInterface::_checkConnection()
 
 void PedalInterface::analyzePedalType()
 {
-
+  
+  // [!] this one's a hack since pedal-type detection is not working reliably
+  
+  switch (index){
+    case 0:
+      setModeSustain();
+    break;
+    case 1:
+      setModeExpression();
+    break;
+  
+  }
+  
+  return; // ---> Skip the Rest
+  
   audio_jack->setupControlVoltage();
-
+  
   // check for volume pedal
   if (audio_jack->testForControlVoltage())
   {
-
+    
     // Pedal is Volume Pedal
     setModeControlVoltage();
     return; // -> Skip Rest
@@ -435,9 +449,8 @@ void PedalInterface::sendMidiInfoMessage(int message)
 
     break;
   }
-
-  // send system exclusive
-  // MidiHandler::sendSysExToAllPorts(message_out, msg_l);
+  
+  
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
