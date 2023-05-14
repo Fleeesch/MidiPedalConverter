@@ -81,7 +81,9 @@ bool AudioJack::testForControlVoltage()
   // predeclare last analog read for initial comparison
   int a_read = 1023;
   int a_read_last;
-
+  
+  int volt = VOLTAGE_GENERATOR->getVoltage();
+  
   // test multiple times...
   for (int i = 0; i < 100; i++)
   {
@@ -106,12 +108,15 @@ bool AudioJack::testForControlVoltage()
     if (mod_val == 1 && a_read_last < a_read)
       continue;
     
+    // restore previous voltage setting
+    VOLTAGE_GENERATOR->setState(volt);
+    
     // voltage stayed the same, return test as failed
     return false;
   }
   
   // activate voltage generator once again
-  VOLTAGE_GENERATOR->setState(1);
+  VOLTAGE_GENERATOR->setState(true);
   
   // return test as a success
   return true;
@@ -135,6 +140,8 @@ bool AudioJack::getSustainTestSignal()
     
     min_val = min(min_val, a_read);
     max_val = max(max_val, a_read);
+
+    
   }
   
   return (max_val - min_val) > thresh;

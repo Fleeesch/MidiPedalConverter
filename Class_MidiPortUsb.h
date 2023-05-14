@@ -1,32 +1,33 @@
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-//  Class : MIDI Port : Header
+//  Class : MIDI Port : USB : Header
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
-#ifndef Class_MidiPort_h
-#define Class_MidiPort_h
+#ifndef Class_MidiPortUsb_h
+#define Class_MidiPortUsb_h
 
-#include <Arduino.h>
-#include "Class_MidiHandler.h"
 #include "MidiPedalConverter.h"
+#include <Midi.h>
+#include "Class_MidiPort.h"
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 //  Class
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 
-class MidiPort
+class MidiPortUsb : public MidiPort
 {
 
 public:
-  MidiPort();
-
-  // send message to port output
-  virtual void sendMessage(int b1, int b2, int b3 = -1);
-
-  virtual void sendByte(int b);
+  MidiPortUsb();
+  
+  // send message to serial port
+  void sendMessage(int b1, int b2, int b3 = -1);
+  
+  void sendByte(int b);
 
 private:
+  
 };
 
 #endif

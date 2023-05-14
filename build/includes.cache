@@ -1,0 +1,27 @@
+[
+  {
+    "Sourcefile": null,
+    "Include": "",
+    "Includepath": "C:\\Users\\F\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.6\\cores\\arduino"
+  },
+  {
+    "Sourcefile": null,
+    "Include": "",
+    "Includepath": "C:\\Users\\F\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.8.6\\variants\\mega"
+  },
+  {
+    "Sourcefile": "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\build\\sketch\\MidiPedalConverter.ino.cpp",
+    "Include": "MIDI.h",
+    "Includepath": "C:\\Users\\F\\Documents\\Arduino\\libraries\\MIDI_Library\\src"
+  },
+  {
+    "Sourcefile": "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\build\\sketch\\MidiPedalConverter.ino.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "C:\\Users\\F\\Documents\\Arduino\\libraries\\MIDI_Library\\src\\MIDI.cpp",
+    "Include": "",
+    "Includepath": null
+  }
+]

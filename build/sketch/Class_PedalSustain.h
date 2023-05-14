@@ -1,3 +1,4 @@
+#line 1 "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\Class_PedalSustain.h"
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 //  Class : Pedal : Sustain : Header

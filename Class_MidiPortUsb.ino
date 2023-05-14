@@ -1,45 +1,41 @@
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-//  Class : MIDI Port : Serial
+//  Class : MIDI Port : USB
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
 #include <Arduino.h>
-#include "Class_MidiPortSerial.h"
+#include <Midi.h>
+#include "Class_MidiPortUsb.h"
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 //  Constructor
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 
-MidiPortSerial::MidiPortSerial(Stream &serialport)
-{
-
-  // store serial port reference
-  _serialport = serialport;
+MidiPortUsb::MidiPortUsb(){
+  
 };
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 //  Method : Send Message
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 
-void MidiPortSerial::sendMessage(int b1, int b2, int b3)
+void MidiPortUsb::sendMessage(int b1, int b2, int b3)
 {
-
-  // mandatory first two bytes
-  _serialport.write(b1);
-  _serialport.write(b2);
-
-  // last byte is optional
+  
+  // [!] ignore 2 byte messages for now
   if (b3 >= 0)
-    _serialport.write(b3);
+    return;
+        
+        // send midi
+       
+    MIDI.sendControlChange(b2, b3, b1 & 0x0F);
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 //  Method : Send Byte
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 
-void MidiPortSerial::sendByte(int b)
+void MidiPortUsb::sendByte(int b)
 {
-  
-  _serialport.write(b);
 }

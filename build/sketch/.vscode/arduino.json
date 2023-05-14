@@ -1,3 +1,4 @@
+#line 1 "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\.vscode\\arduino.json"
 {
     "board": "arduino:avr:mega",
     "programmer": "usbtinyisp",

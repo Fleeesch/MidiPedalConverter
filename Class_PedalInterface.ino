@@ -25,6 +25,9 @@ PedalInterface::PedalInterface()
   // add interace to lookup
   PedalInterface::lookup[PedalInterface::lookup_index] = this;
 
+  // store index number
+  index = lookup_index;
+
   // increment index
   PedalInterface::lookup_index++;
 };
@@ -35,7 +38,7 @@ PedalInterface::PedalInterface()
 
 void PedalInterface::automaticMidiChannel()
 {
-  
+
   // pedal type channel incrementors
   int chan_exp = 0;
   int chan_sus = 0;
@@ -55,14 +58,13 @@ void PedalInterface::automaticMidiChannel()
       p_int->setCommonMidiChannel(chan_sus % 16); // set midi channel (1 - 16)
       chan_sus++;                                 // increment channel
     }
-    
+
     // interface is set to expression?
     if (p_int->isExpression())
     {
       p_int->setCommonMidiChannel(chan_exp % 16); // set midi channel (1 - 16)
       chan_exp++;                                 // increment channel
     }
-
   }
 }
 
@@ -75,14 +77,14 @@ void PedalInterface::routine()
   // skip routine if detection mode is active
   if (_mode == MODE_DETECTION)
   {
-    
+
     // update audio connector data
     _checkConnection();
-    
+
     // audio connector is plugged in?
     if (_insert_state)
     {
-      
+
       // increment debounce
       if (_detection_debounce <= DETECTION_DEBOUNCE_TICKS)
         _detection_debounce++;
@@ -96,7 +98,7 @@ void PedalInterface::routine()
 
     if (!_insert_state)
       resetDetectionDebounce(); // reset debounce
-    
+
     return; // skip normal routine
   }
 
@@ -120,17 +122,17 @@ void PedalInterface::addAudioJack(int pdt, int pdr, int pds, int pt, int pr, int
 
 void PedalInterface::setModeDetection()
 {
-  
+
   // skip if mode stays the same
   if (_mode == MODE_DETECTION)
     return;
-  
+
   // store mode
   _storeMode(MODE_DETECTION);
-  
+
   // configure IO
   audio_jack->setupDetection();
-  
+
   // reset debounce counter
   resetDetectionDebounce();
 }
@@ -148,14 +150,14 @@ void PedalInterface::setModeSustain()
 
   // store mode
   _storeMode(MODE_SUSTAIN);
-  
+
   // configure IO
   audio_jack->setupSustain();
 
-  // delete previous pedal, instantiate new one
-  delete pedal;
-  pedal = new PedalSustain(this);
-  
+  // redirect pedal
+  pedal = &pedal_sustain;
+  pedal->reset();
+
   // apply automtic MIDI channels
   PedalInterface::automaticMidiChannel();
 }
@@ -166,20 +168,20 @@ void PedalInterface::setModeSustain()
 
 void PedalInterface::setModeExpression()
 {
-  
+
   // skip if mode stays the same
   if (_mode == MODE_EXPRESSION)
     return;
-  
+
   // store mode
   _storeMode(MODE_EXPRESSION);
-  
+
   // configure IO
   audio_jack->setupExpression();
-  
-  // delete previous pedal, instantiate new one
-  delete pedal;
-  pedal = new PedalExpression(this);
+
+  // redirect pedal
+  pedal = &pedal_expression;
+  pedal->reset();
   
   // apply automtic MIDI channels
   PedalInterface::automaticMidiChannel();
@@ -194,13 +196,14 @@ void PedalInterface::setModeControlVoltage()
   
   if (_mode == MODE_CONTROL_VOLTAGE)
     return;
-  
+
   _storeMode(MODE_CONTROL_VOLTAGE);
   audio_jack->setupControlVoltage();
+
+  // redirect pedal
+  pedal = &pedal_expression;
+  pedal->reset();
   
-  // delete previous pedal, instantiate new one
-  delete pedal;
-  pedal = new PedalExpression(this);
 
   // apply automtic MIDI channels
   PedalInterface::automaticMidiChannel();
@@ -256,7 +259,6 @@ void PedalInterface::_revertMode()
   setModeByIndex(_mode_last);
 }
 
-
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 //  Method : Check Connection
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -294,7 +296,7 @@ void PedalInterface::analyzePedalType()
   // check for volume pedal
   if (audio_jack->testForControlVoltage())
   {
-
+    
     // Pedal is Volume Pedal
     setModeControlVoltage();
     return; // -> Skip Rest
@@ -321,7 +323,7 @@ void PedalInterface::analyzePedalType()
       return; // -> Skip Rest
     }
   }
-
+  
   // Nothing found, back to Detection Mode
   audio_jack->setupDetection();
 }
@@ -332,13 +334,16 @@ void PedalInterface::analyzePedalType()
 
 void PedalInterface::detectionInterrupt()
 {
-
+  
+  // turn of voltage
+  VOLTAGE_GENERATOR->setVoltage(false);
+  
   // configure pins for tip detection
   setModeDetection();
 
   // always reset interrupt debounce
   resetDetectionDebounce();
-  
+
   // check the current connection if everything is ok
   _checkConnection();
 };
@@ -368,7 +373,7 @@ int PedalInterface::getCommonMidiChannel()
 
 void PedalInterface::setCommonMidiChannel(int channel)
 {
-  
+
   _midi_channel = min(max(channel, 0), 15);
 }
 
@@ -388,6 +393,50 @@ bool PedalInterface::isSustain()
 bool PedalInterface::isExpression()
 {
   return _mode == MODE_EXPRESSION || _mode == MODE_CONTROL_VOLTAGE;
+}
+
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+//  Method : Send Midi Info Message
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+void PedalInterface::sendMidiInfoMessage(int message)
+{
+
+  int message_out[100]; // pre-declare message
+  int msg_l = 0;        // length gets set manually
+
+  switch (message)
+  {
+
+  // activation message
+  case MESSAGE_ACITVATED:
+
+    message_out[0] = 0x01;
+    message_out[1] = index;
+    message_out[2] = _mode;
+    msg_l = 3;
+
+    break;
+
+  // detection message
+  case MESSAGE_DETECTING:
+    
+    message_out[0] = 0xF0;
+    message_out[1] = index;
+    msg_l = 2;
+    
+    break;
+
+  // midi activation message
+  case MESSAGE_MIDI_GO:
+    message_out[0] = 0x0B;
+    message_out[1] = index;
+    msg_l = 2;
+
+    break;
+  }
+  // send system exclusive
+  MidiHandler::sendSysExToAllPorts(message_out, msg_l);
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~

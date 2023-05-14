@@ -12,12 +12,12 @@
 //  Dependencies
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-#include <Arduino.h>
 #include "MidiPedalConverter.h"
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 //  Globals
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 //  Setup
@@ -26,10 +26,12 @@
 void setup()
 {
   
-  
+  // start midi communication
+  MIDI.begin(MIDI_CHANNEL_OMNI);
+    
   // setup voltage generator
   VOLTAGE_GENERATOR = new VoltageGenerator(PIN_V_GENERATOR_TIP);
-  VOLTAGE_GENERATOR->setState(true);
+  VOLTAGE_GENERATOR->setState(false);
   
   // setup pedal interfaces
   for (int i = 0; i < INTERFACES_COUNT; i++)
@@ -119,12 +121,18 @@ void setup()
   if (!test_mode)
   {
     
-    // create MIDI port, add to lookup list
+    // create MIDI Din5 port, add to lookup list
     midi_port_jack = new MidiPortSerial(Serial);
-    Midi::addPort(midi_port_jack);
+    MidiHandler::addPort(midi_port_jack);
+    
+    // create MIDI USB port, add to lookup list
+    midi_port_usb = new MidiPortUsb();
+    MidiHandler::addPort(midi_port_usb);
 
     Serial.begin(31250);
   }
+
+  delay(1000);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
