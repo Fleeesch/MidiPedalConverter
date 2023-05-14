@@ -41,7 +41,7 @@ void MidiHandler::addPort(MidiPort *port)
 
 void MidiHandler::sendToAllPorts(int b1, int b2, int b3)
 {
-  
+    
   // go through ports
   for (MidiPort *port : MidiHandler::ports)
   {

@@ -24,19 +24,22 @@ PedalExpression::PedalExpression(PedalInterface *pedal_if)
 
 void PedalExpression::reset()
 {
-
+  
   Pedal::reset();
-
+  
   // reset values
-  _value_min = 110;
-  _value_max = 1000;
+  _value_min = EXPRESSION_PEDAL_LOW;
+  _value_max = EXPRESSION_PEDAL_HIGH;
+  
   _value_last = 0;
   _target_last = 0;
-  _timeout_counter = 0;
+  
   _last_midi_value_msb = 0;
   _last_midi_value_lsb = 0;
 
-  init_millis = millis();
+  _last_direction_millis = millis();
+  _last_direction = false;
+  
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -58,49 +61,49 @@ void PedalExpression::routine()
 
   // rescale using minimal and maximal values
   _value_target = map(_value_target, _value_min, _value_max, 0, 1023);
+  
+  
 
-  // check if delta is below threshold value
-  bool is_in_threshold = abs(_value_target - _target_last) <= _timeout_threshold;
-
-  _target_last = _value_target;
-
-  // timeout active?
-  if (_timeout)
+  // : : : : : : : : : : : : : : :
+  //  Poti Debouncing
+  // : : : : : : : : : : : : : : :
+  
+  // check for last direction change to the negative
+  if (!_last_direction && _value_target > _target_last)
   {
-    // reset timeout if within treshold
-    if (!is_in_threshold)
+    
+    // store direction change data
+    _last_direction = true;
+    _last_direction_millis = millis();
+    
+    // direction chagne to fast? skip rest of code
+    if (_last_direction_millis < _direction_timeout)
     {
-
-      _timeout = false;
-      _timeout_counter = 0;
-    }
-
-    // skip the rest of the code
-    if (is_in_threshold)
       return;
+    }
   }
-
-  // check if signal is within threshold
-  if (is_in_threshold)
+  
+  // check for last direction change to the positive
+  if (_last_direction && _value_target < _target_last)
   {
-
-    // increment timeout counter
-    if (_timeout_counter <= _timeout_ticks)
-      _timeout_counter++;
-
-    // timeout activation
-    if (_timeout_counter == _timeout_ticks)
-      _timeout = true;
+    
+    // store direction change data
+    _last_direction = false;
+    _last_direction_millis = millis();
+    
+    // direction chagne to fast? skip rest of code
+    if (_last_direction_millis < _direction_timeout)
+    {
+      return;
+    }
   }
-  else
-  {
-    // reset timeout counter when threshold breached
-    _timeout_counter = 0;
-  }
-
+  
+  // store last target value
+  _target_last = _value_target;
+  
   // interpolate from last value
   _value_last += (_value_target - _value_last) * _interpolation_factor;
-
+  
   // send midi
   sendMidi(round(_value_last));
 }
@@ -111,7 +114,7 @@ void PedalExpression::routine()
 
 void PedalExpression::sendMidi(int value)
 {
-
+  
   // skip if not enough time has passed since initialization
   if (!midi_is_go)
     return;

@@ -17,8 +17,7 @@
 class VoltageGenerator {
 
 public:
-  
-  
+    
   VoltageGenerator();
   
   // constructor with voltage out pin

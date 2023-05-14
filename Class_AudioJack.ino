@@ -31,9 +31,19 @@ AudioJack::AudioJack(int pdt, int pdr, int pds, int pt, int pr, int ps)
 
   // setup detection pins
   setPinMode(_pin_detect_tip, PINMODE_PULLUP);
-  setPinMode(_pin_detect_ring, PINMODE_PULLUP);
+  setPinMode(_pin_detect_ring, PINMODE_DIGITAL);
   setPinMode(_pin_detect_sleeve, PINMODE_PULLUP);
 };
+
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+//  Method : Get Pluck Signal
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+bool AudioJack::getPluckSignal()
+{
+
+  return digitalRead(_pin_detect_sleeve);
+}
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 //  Method : Get Detection Signal
@@ -80,44 +90,44 @@ bool AudioJack::testForControlVoltage()
 
   // predeclare last analog read for initial comparison
   int a_read = 1023;
-  int a_read_last;
-  
+  int a_read_last = a_read;
+
   int volt = VOLTAGE_GENERATOR->getVoltage();
-  
+
   // test multiple times...
   for (int i = 0; i < 100; i++)
   {
 
     // get even / uneven iteration index state
     int mod_val = i % 2;
-    
+
     // toggle voltage between high and low
     VOLTAGE_GENERATOR->setState(mod_val);
-    
+
     // store last analog signal
     a_read_last = a_read;
-    
+
     // store current analog signal
     a_read = analogRead(_pin_tip);
-    
+
     // voltage is 0V and signal has fallen? Everything ok, skip...
     if (mod_val == 0 && a_read_last > a_read)
       continue;
-    
+
     // voltage is 5V and signal has risen? Everything ok, skip...
     if (mod_val == 1 && a_read_last < a_read)
       continue;
-    
+
     // restore previous voltage setting
     VOLTAGE_GENERATOR->setState(volt);
-    
+
     // voltage stayed the same, return test as failed
     return false;
   }
-  
+
   // activate voltage generator once again
   VOLTAGE_GENERATOR->setState(true);
-  
+
   // return test as a success
   return true;
 };
@@ -128,22 +138,38 @@ bool AudioJack::testForControlVoltage()
 
 bool AudioJack::getSustainTestSignal()
 {
-  int thresh = 10;
-  
+
+  // tolerance threshold
+  int thresh = 2;
+
+  // boundary values
   int min_val = 1023;
   int max_val = 0;
-  
+
+  // store voltage generator
+  int voltage = VOLTAGE_GENERATOR->getVoltage();
+
+  // do several checkup to check for value spread
   for (int i = 0; i < 100; i++)
   {
-    
+
+    // read sensor
     int a_read = analogRead(_pin_tip);
-    
+
+    // expand boundaries
     min_val = min(min_val, a_read);
     max_val = max(max_val, a_read);
 
-    
+    // randomly enbale / disable voltage generator to create noise
+    VOLTAGE_GENERATOR->setState(random(1));
+
+    delayMicroseconds(100);
   }
-  
+
+  // restore voltage generator state
+  VOLTAGE_GENERATOR->setVoltage(voltage);
+
+  // check if value is above threshold
   return (max_val - min_val) > thresh;
 };
 
@@ -153,7 +179,7 @@ bool AudioJack::getSustainTestSignal()
 
 void AudioJack::setupDetection()
 {
-  
+
   setPinMode(_pin_tip, PINMODE_GND);
   setPinMode(_pin_ring, PINMODE_GND);
   setPinMode(_pin_sleeve, PINMODE_GND);
@@ -165,7 +191,7 @@ void AudioJack::setupDetection()
 
 void AudioJack::setupSustain()
 {
-  
+
   setPinMode(_pin_tip, PINMODE_PULLUP);
   setPinMode(_pin_ring, PINMODE_GND);
   setPinMode(_pin_sleeve, PINMODE_GND);
@@ -203,7 +229,7 @@ void AudioJack::setupSustainTest()
 {
 
   setPinMode(_pin_tip, PINMODE_ANALOG);
-  setPinMode(_pin_ring, PINMODE_5V);
+  setPinMode(_pin_ring, PINMODE_GND);
   setPinMode(_pin_sleeve, PINMODE_GND);
 };
 

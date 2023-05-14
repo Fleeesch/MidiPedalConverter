@@ -26,28 +26,24 @@
 //  Pin Configuration
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-
-// interrupt pins for sleeve connector
-#define SLEEVE_INTERRUPT_PEDAL 18
-#define SLEEVE_INTERRUPT_PEDAL_ALT 2
-#define SLEEVE_INTERRUPT_VOLTAGE 19
-
 // voltage generator pin
-#define PIN_V_GENERATOR_TIP 42
-#define PIN_V_GENERATOR_TIP_DETECT 44
-#define PIN_V_GENERATOR_SLEEVE_DETECT 45
+#define PIN_V_GENERATOR_TIP 38
+#define PIN_V_GENERATOR_TIP_DETECT 39
+#define PIN_V_GENERATOR_SLEEVE_DETECT 40
 
 // interface 1
 #define PIN_INTERFACE_0_TIP A0
-#define PIN_INTERFACE_0_RING 22
-#define PIN_INTERFACE_0_TIP_DETECT 25
-#define PIN_INTERFACE_0_SLEEVE_DETECT 26
+#define PIN_INTERFACE_0_TIP_DETECT 22
+#define PIN_INTERFACE_0_RING 23
+#define PIN_INTERFACE_0_RING_DETECT 24 
+#define PIN_INTERFACE_0_SLEEVE_DETECT 25
 
 // interface 2
-#define PIN_INTERFACE_1_TIP A2
-#define PIN_INTERFACE_1_RING 32
-#define PIN_INTERFACE_1_TIP_DETECT 35
-#define PIN_INTERFACE_1_SLEEVE_DETECT 36
+#define PIN_INTERFACE_1_TIP A1
+#define PIN_INTERFACE_1_TIP_DETECT 30
+#define PIN_INTERFACE_1_RING 31
+#define PIN_INTERFACE_1_RING_DETECT 32
+#define PIN_INTERFACE_1_SLEEVE_DETECT 33
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 //  Settings
@@ -63,16 +59,6 @@
 
 
 MIDI_CREATE_DEFAULT_INSTANCE();
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-//  Method Decalaration
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-// setup TRS detection interrupt
-void setupDetectionInterrupt(int pin);
-
-// method that gets triggered on interrupt
-void detectionChange();
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

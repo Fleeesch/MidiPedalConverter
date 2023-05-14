@@ -20,91 +20,81 @@
 //  Globals
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 //  Setup
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-#line 26 "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\MidiPedalConverter.ino"
+#line 25 "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\MidiPedalConverter.ino"
 void setup();
-#line 142 "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\MidiPedalConverter.ino"
+#line 136 "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\MidiPedalConverter.ino"
 void loop();
-#line 170 "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\MidiPedalConverter.ino"
-void setupDetectionInterrupt(int pin);
-#line 185 "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\MidiPedalConverter.ino"
-void detectionChange();
-#line 26 "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\MidiPedalConverter.ino"
+#line 25 "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\MidiPedalConverter.ino"
 void setup()
 {
   
   // start midi communication
   MIDI.begin(MIDI_CHANNEL_OMNI);
-    
+  
   // setup voltage generator
   VOLTAGE_GENERATOR = new VoltageGenerator(PIN_V_GENERATOR_TIP);
   VOLTAGE_GENERATOR->setState(false);
-  
+
   // setup pedal interfaces
   for (int i = 0; i < INTERFACES_COUNT; i++)
   {
     p_interfaces[i] = new PedalInterface();
-    
+
     switch (i)
     {
+
+    case 0:
+      p_interfaces[i]->addAudioJack(PIN_INTERFACE_0_TIP_DETECT, PIN_INTERFACE_0_RING_DETECT, PIN_INTERFACE_0_SLEEVE_DETECT, PIN_INTERFACE_0_TIP, PIN_INTERFACE_0_RING, 0);
+      break;
+
+    case 1:
+      p_interfaces[i]->addAudioJack(PIN_INTERFACE_1_TIP_DETECT, PIN_INTERFACE_1_RING_DETECT, PIN_INTERFACE_1_SLEEVE_DETECT, PIN_INTERFACE_1_TIP, PIN_INTERFACE_1_RING, 0);
+      break;
+
     default:
       p_interfaces[i]->addAudioJack(0, 0, 0, 0, 0, 0);
-      break;
-    
-    case 0:
-      p_interfaces[i]->addAudioJack(PIN_INTERFACE_0_TIP_DETECT, 0, PIN_INTERFACE_0_SLEEVE_DETECT, PIN_INTERFACE_0_TIP, PIN_INTERFACE_0_RING, 0);
-      break;
-    
-    case 1:
-      p_interfaces[i]->addAudioJack(PIN_INTERFACE_1_TIP_DETECT, 0, PIN_INTERFACE_1_SLEEVE_DETECT, PIN_INTERFACE_1_TIP, PIN_INTERFACE_1_RING, 0);
       break;
     }
     
     p_interfaces[i]->setModeDetection();
   }
-  
-  // detection pin interrupt
-  setupDetectionInterrupt(SLEEVE_INTERRUPT_PEDAL);
-  setupDetectionInterrupt(SLEEVE_INTERRUPT_PEDAL_ALT);
-  setupDetectionInterrupt(SLEEVE_INTERRUPT_VOLTAGE);
-  
-  
+
   // ::::::::::::::::::
   //    Test Mode
   // ::::::::::::::::::
-  
+
   if (test_mode)
   {
-    
-    // Start Serial Connection 
+
+    // Start Serial Connection
     Serial.begin(9600);
-    
+
     // print introduction lines
     Serial.println("::: TEST MODE :::");
     delay(500);
     Serial.println("Analyzing Pedal Type...");
-    
+
     // go through interfaces
     for (int i = 0; i < INTERFACES_COUNT; i++)
     {
-      
+
       // test for control voltage
       p_interfaces[i]->audio_jack->setupControlVoltage();
-      
+
       // control voltage found? Use pedal type 2, skip the rest
       if (p_interfaces[i]->audio_jack->testForControlVoltage())
       {
         p_interfaces[i]->test_pedaltype = 2;
         continue;
       }
-      
+
       // test for Sustain Signal
       p_interfaces[i]->audio_jack->setupSustainTest();
-      
+
       // get test signal
       if (p_interfaces[i]->audio_jack->getSustainTestSignal())
       {
@@ -116,22 +106,22 @@ void setup()
       {
         // pedal is an expression type
         p_interfaces[i]->test_pedaltype = 1;
-    
+
         continue;
       }
     }
-    
+
     // analyzation done
     delay(500);
     Serial.println("Analyze Complete! ...");
   }
-  
+
   // ::::::::::::::::::
   //    MIDI Mode
   // ::::::::::::::::::
   if (!test_mode)
   {
-    
+
     // create MIDI Din5 port, add to lookup list
     midi_port_jack = new MidiPortSerial(Serial);
     MidiHandler::addPort(midi_port_jack);
@@ -152,10 +142,10 @@ void setup()
 
 void loop()
 {
-  
+
   if (test_mode)
   {
-    
+
     // go through pedal interfaces, test
     for (int i = 0; i < INTERFACES_COUNT; i++)
     {
@@ -163,10 +153,10 @@ void loop()
     }
     Serial.println("---");
     delay(2000);
-    
+
     return;
   }
-  
+
   // go through pedal interfaces, do routines
   for (int i = 0; i < INTERFACES_COUNT; i++)
   {
@@ -174,40 +164,6 @@ void loop()
   }
 }
 
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-//  Method : Setup Detection Interrrupt
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-void setupDetectionInterrupt(int pin)
-{
-  
-  // use pullup
-  pinMode(pin, INPUT_PULLUP);
-  digitalWrite(pin, HIGH);
-  
-  // add interrupt
-  attachInterrupt(digitalPinToInterrupt(pin), detectionChange, CHANGE);
-}
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-//  Interrupt : Detection Change
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-void detectionChange()
-{
-  // show only message in test mode
-  if(test_mode){
-    Serial.println(">>> Plugin Interrupt");
-    return;
-  }
-  
-  // to through interfaces
-  for (int i = 0; i < INTERFACES_COUNT; i++)
-  {
-    // trigger interrupt handler
-    p_interfaces[i]->detectionInterrupt();
-  }
-}
 #line 1 "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\Class_AudioJack.ino"
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -242,9 +198,19 @@ AudioJack::AudioJack(int pdt, int pdr, int pds, int pt, int pr, int ps)
 
   // setup detection pins
   setPinMode(_pin_detect_tip, PINMODE_PULLUP);
-  setPinMode(_pin_detect_ring, PINMODE_PULLUP);
+  setPinMode(_pin_detect_ring, PINMODE_DIGITAL);
   setPinMode(_pin_detect_sleeve, PINMODE_PULLUP);
 };
+
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+//  Method : Get Pluck Signal
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+bool AudioJack::getPluckSignal()
+{
+
+  return digitalRead(_pin_detect_sleeve);
+}
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 //  Method : Get Detection Signal
@@ -291,44 +257,44 @@ bool AudioJack::testForControlVoltage()
 
   // predeclare last analog read for initial comparison
   int a_read = 1023;
-  int a_read_last;
-  
+  int a_read_last = a_read;
+
   int volt = VOLTAGE_GENERATOR->getVoltage();
-  
+
   // test multiple times...
   for (int i = 0; i < 100; i++)
   {
 
     // get even / uneven iteration index state
     int mod_val = i % 2;
-    
+
     // toggle voltage between high and low
     VOLTAGE_GENERATOR->setState(mod_val);
-    
+
     // store last analog signal
     a_read_last = a_read;
-    
+
     // store current analog signal
     a_read = analogRead(_pin_tip);
-    
+
     // voltage is 0V and signal has fallen? Everything ok, skip...
     if (mod_val == 0 && a_read_last > a_read)
       continue;
-    
+
     // voltage is 5V and signal has risen? Everything ok, skip...
     if (mod_val == 1 && a_read_last < a_read)
       continue;
-    
+
     // restore previous voltage setting
     VOLTAGE_GENERATOR->setState(volt);
-    
+
     // voltage stayed the same, return test as failed
     return false;
   }
-  
+
   // activate voltage generator once again
   VOLTAGE_GENERATOR->setState(true);
-  
+
   // return test as a success
   return true;
 };
@@ -339,22 +305,38 @@ bool AudioJack::testForControlVoltage()
 
 bool AudioJack::getSustainTestSignal()
 {
-  int thresh = 10;
-  
+
+  // tolerance threshold
+  int thresh = 2;
+
+  // boundary values
   int min_val = 1023;
   int max_val = 0;
-  
+
+  // store voltage generator
+  int voltage = VOLTAGE_GENERATOR->getVoltage();
+
+  // do several checkup to check for value spread
   for (int i = 0; i < 100; i++)
   {
-    
+
+    // read sensor
     int a_read = analogRead(_pin_tip);
-    
+
+    // expand boundaries
     min_val = min(min_val, a_read);
     max_val = max(max_val, a_read);
 
-    
+    // randomly enbale / disable voltage generator to create noise
+    VOLTAGE_GENERATOR->setState(random(1));
+
+    delayMicroseconds(100);
   }
-  
+
+  // restore voltage generator state
+  VOLTAGE_GENERATOR->setVoltage(voltage);
+
+  // check if value is above threshold
   return (max_val - min_val) > thresh;
 };
 
@@ -364,7 +346,7 @@ bool AudioJack::getSustainTestSignal()
 
 void AudioJack::setupDetection()
 {
-  
+
   setPinMode(_pin_tip, PINMODE_GND);
   setPinMode(_pin_ring, PINMODE_GND);
   setPinMode(_pin_sleeve, PINMODE_GND);
@@ -376,7 +358,7 @@ void AudioJack::setupDetection()
 
 void AudioJack::setupSustain()
 {
-  
+
   setPinMode(_pin_tip, PINMODE_PULLUP);
   setPinMode(_pin_ring, PINMODE_GND);
   setPinMode(_pin_sleeve, PINMODE_GND);
@@ -414,7 +396,7 @@ void AudioJack::setupSustainTest()
 {
 
   setPinMode(_pin_tip, PINMODE_ANALOG);
-  setPinMode(_pin_ring, PINMODE_5V);
+  setPinMode(_pin_ring, PINMODE_GND);
   setPinMode(_pin_sleeve, PINMODE_GND);
 };
 
@@ -529,7 +511,7 @@ void MidiHandler::addPort(MidiPort *port)
 
 void MidiHandler::sendToAllPorts(int b1, int b2, int b3)
 {
-  
+    
   // go through ports
   for (MidiPort *port : MidiHandler::ports)
   {
@@ -792,19 +774,22 @@ PedalExpression::PedalExpression(PedalInterface *pedal_if)
 
 void PedalExpression::reset()
 {
-
+  
   Pedal::reset();
-
+  
   // reset values
-  _value_min = 110;
-  _value_max = 1000;
+  _value_min = EXPRESSION_PEDAL_LOW;
+  _value_max = EXPRESSION_PEDAL_HIGH;
+  
   _value_last = 0;
   _target_last = 0;
-  _timeout_counter = 0;
+  
   _last_midi_value_msb = 0;
   _last_midi_value_lsb = 0;
 
-  init_millis = millis();
+  _last_direction_millis = millis();
+  _last_direction = false;
+  
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -826,49 +811,49 @@ void PedalExpression::routine()
 
   // rescale using minimal and maximal values
   _value_target = map(_value_target, _value_min, _value_max, 0, 1023);
+  
+  
 
-  // check if delta is below threshold value
-  bool is_in_threshold = abs(_value_target - _target_last) <= _timeout_threshold;
-
-  _target_last = _value_target;
-
-  // timeout active?
-  if (_timeout)
+  // : : : : : : : : : : : : : : :
+  //  Poti Debouncing
+  // : : : : : : : : : : : : : : :
+  
+  // check for last direction change to the negative
+  if (!_last_direction && _value_target > _target_last)
   {
-    // reset timeout if within treshold
-    if (!is_in_threshold)
+    
+    // store direction change data
+    _last_direction = true;
+    _last_direction_millis = millis();
+    
+    // direction chagne to fast? skip rest of code
+    if (_last_direction_millis < _direction_timeout)
     {
-
-      _timeout = false;
-      _timeout_counter = 0;
-    }
-
-    // skip the rest of the code
-    if (is_in_threshold)
       return;
+    }
   }
-
-  // check if signal is within threshold
-  if (is_in_threshold)
+  
+  // check for last direction change to the positive
+  if (_last_direction && _value_target < _target_last)
   {
-
-    // increment timeout counter
-    if (_timeout_counter <= _timeout_ticks)
-      _timeout_counter++;
-
-    // timeout activation
-    if (_timeout_counter == _timeout_ticks)
-      _timeout = true;
+    
+    // store direction change data
+    _last_direction = false;
+    _last_direction_millis = millis();
+    
+    // direction chagne to fast? skip rest of code
+    if (_last_direction_millis < _direction_timeout)
+    {
+      return;
+    }
   }
-  else
-  {
-    // reset timeout counter when threshold breached
-    _timeout_counter = 0;
-  }
-
+  
+  // store last target value
+  _target_last = _value_target;
+  
   // interpolate from last value
   _value_last += (_value_target - _value_last) * _interpolation_factor;
-
+  
   // send midi
   sendMidi(round(_value_last));
 }
@@ -879,7 +864,7 @@ void PedalExpression::routine()
 
 void PedalExpression::sendMidi(int value)
 {
-
+  
   // skip if not enough time has passed since initialization
   if (!midi_is_go)
     return;
@@ -976,6 +961,16 @@ PedalInterface::PedalInterface()
 };
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+//  Method : Detect Sleeve Connection
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+bool PedalInterface::detectSleeveConnection()
+{
+
+  return audio_jack->getPluckSignal();
+};
+
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 //  Static Method : Automatic MIDI Channel
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 
@@ -985,16 +980,16 @@ void PedalInterface::automaticMidiChannel()
   // pedal type channel incrementors
   int chan_exp = 0;
   int chan_sus = 0;
-  
+
   // pedal reference
   PedalInterface *p_int;
-  
+
   // go through pedal interfaces
   for (int i = 0; i < PedalInterface::lookup_index; i++)
   {
     // get pedal interface
     p_int = PedalInterface::lookup[i];
-    
+
     // interface is set to sustain?
     if (p_int->isSustain())
     {
@@ -1017,6 +1012,18 @@ void PedalInterface::automaticMidiChannel()
 
 void PedalInterface::routine()
 {
+
+  // check if the pluck is missing
+  if (!detectSleeveConnection())
+  {
+
+    // reset plugin debouncing
+    resetDetectionDebounce();
+
+    // set mode to detection
+    setModeDetection();
+  }
+
   // skip routine if detection mode is active
   if (_mode == MODE_DETECTION)
   {
@@ -1125,7 +1132,7 @@ void PedalInterface::setModeExpression()
   // redirect pedal
   pedal = &pedal_expression;
   pedal->reset();
-  
+
   // apply automtic MIDI channels
   PedalInterface::automaticMidiChannel();
 }
@@ -1136,7 +1143,7 @@ void PedalInterface::setModeExpression()
 
 void PedalInterface::setModeControlVoltage()
 {
-  
+
   if (_mode == MODE_CONTROL_VOLTAGE)
     return;
 
@@ -1146,7 +1153,6 @@ void PedalInterface::setModeControlVoltage()
   // redirect pedal
   pedal = &pedal_expression;
   pedal->reset();
-  
 
   // apply automtic MIDI channels
   PedalInterface::automaticMidiChannel();
@@ -1218,7 +1224,6 @@ void PedalInterface::_checkConnection()
   {
 
     _insert_state = true;
-    _revertMode(); // go back to previous
   }
   else
   {
@@ -1239,7 +1244,7 @@ void PedalInterface::analyzePedalType()
   // check for volume pedal
   if (audio_jack->testForControlVoltage())
   {
-    
+
     // Pedal is Volume Pedal
     setModeControlVoltage();
     return; // -> Skip Rest
@@ -1266,30 +1271,10 @@ void PedalInterface::analyzePedalType()
       return; // -> Skip Rest
     }
   }
-  
+
   // Nothing found, back to Detection Mode
   audio_jack->setupDetection();
 }
-
-// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-//  Method : Detection Interrupt
-// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-
-void PedalInterface::detectionInterrupt()
-{
-  
-  // turn of voltage
-  VOLTAGE_GENERATOR->setVoltage(false);
-  
-  // configure pins for tip detection
-  setModeDetection();
-
-  // always reset interrupt debounce
-  resetDetectionDebounce();
-
-  // check the current connection if everything is ok
-  _checkConnection();
-};
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 //  Method : Reset Interrupt Debounce
@@ -1363,11 +1348,11 @@ void PedalInterface::sendMidiInfoMessage(int message)
 
   // detection message
   case MESSAGE_DETECTING:
-    
+
     message_out[0] = 0xF0;
     message_out[1] = index;
     msg_l = 2;
-    
+
     break;
 
   // midi activation message
@@ -1378,8 +1363,9 @@ void PedalInterface::sendMidiInfoMessage(int message)
 
     break;
   }
+
   // send system exclusive
-  MidiHandler::sendSysExToAllPorts(message_out, msg_l);
+  // MidiHandler::sendSysExToAllPorts(message_out, msg_l);
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~

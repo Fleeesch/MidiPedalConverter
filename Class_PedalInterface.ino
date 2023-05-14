@@ -33,6 +33,16 @@ PedalInterface::PedalInterface()
 };
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+//  Method : Detect Sleeve Connection
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+bool PedalInterface::detectSleeveConnection()
+{
+
+  return audio_jack->getPluckSignal();
+};
+
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 //  Static Method : Automatic MIDI Channel
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 
@@ -42,16 +52,16 @@ void PedalInterface::automaticMidiChannel()
   // pedal type channel incrementors
   int chan_exp = 0;
   int chan_sus = 0;
-  
+
   // pedal reference
   PedalInterface *p_int;
-  
+
   // go through pedal interfaces
   for (int i = 0; i < PedalInterface::lookup_index; i++)
   {
     // get pedal interface
     p_int = PedalInterface::lookup[i];
-    
+
     // interface is set to sustain?
     if (p_int->isSustain())
     {
@@ -74,6 +84,18 @@ void PedalInterface::automaticMidiChannel()
 
 void PedalInterface::routine()
 {
+
+  // check if the pluck is missing
+  if (!detectSleeveConnection())
+  {
+
+    // reset plugin debouncing
+    resetDetectionDebounce();
+
+    // set mode to detection
+    setModeDetection();
+  }
+
   // skip routine if detection mode is active
   if (_mode == MODE_DETECTION)
   {
@@ -182,7 +204,7 @@ void PedalInterface::setModeExpression()
   // redirect pedal
   pedal = &pedal_expression;
   pedal->reset();
-  
+
   // apply automtic MIDI channels
   PedalInterface::automaticMidiChannel();
 }
@@ -193,7 +215,7 @@ void PedalInterface::setModeExpression()
 
 void PedalInterface::setModeControlVoltage()
 {
-  
+
   if (_mode == MODE_CONTROL_VOLTAGE)
     return;
 
@@ -203,7 +225,6 @@ void PedalInterface::setModeControlVoltage()
   // redirect pedal
   pedal = &pedal_expression;
   pedal->reset();
-  
 
   // apply automtic MIDI channels
   PedalInterface::automaticMidiChannel();
@@ -275,7 +296,6 @@ void PedalInterface::_checkConnection()
   {
 
     _insert_state = true;
-    _revertMode(); // go back to previous
   }
   else
   {
@@ -296,7 +316,7 @@ void PedalInterface::analyzePedalType()
   // check for volume pedal
   if (audio_jack->testForControlVoltage())
   {
-    
+
     // Pedal is Volume Pedal
     setModeControlVoltage();
     return; // -> Skip Rest
@@ -323,30 +343,10 @@ void PedalInterface::analyzePedalType()
       return; // -> Skip Rest
     }
   }
-  
+
   // Nothing found, back to Detection Mode
   audio_jack->setupDetection();
 }
-
-// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-//  Method : Detection Interrupt
-// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
-
-void PedalInterface::detectionInterrupt()
-{
-  
-  // turn of voltage
-  VOLTAGE_GENERATOR->setVoltage(false);
-  
-  // configure pins for tip detection
-  setModeDetection();
-
-  // always reset interrupt debounce
-  resetDetectionDebounce();
-
-  // check the current connection if everything is ok
-  _checkConnection();
-};
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 //  Method : Reset Interrupt Debounce
@@ -420,11 +420,11 @@ void PedalInterface::sendMidiInfoMessage(int message)
 
   // detection message
   case MESSAGE_DETECTING:
-    
+
     message_out[0] = 0xF0;
     message_out[1] = index;
     msg_l = 2;
-    
+
     break;
 
   // midi activation message
@@ -435,8 +435,9 @@ void PedalInterface::sendMidiInfoMessage(int message)
 
     break;
   }
+
   // send system exclusive
-  MidiHandler::sendSysExToAllPorts(message_out, msg_l);
+  // MidiHandler::sendSysExToAllPorts(message_out, msg_l);
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~

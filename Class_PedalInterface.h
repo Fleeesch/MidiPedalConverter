@@ -27,7 +27,7 @@
 #define MESSAGE_MIDI_GO 2
 
 // debounce time for connector detection in ticks
-const unsigned int DETECTION_DEBOUNCE_TICKS = 5000;
+const unsigned int DETECTION_DEBOUNCE_TICKS = 10000;
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 //  Constructor
@@ -61,7 +61,7 @@ public:
   void printPedalData(int index = 0);
   
   // gets triggered on TRS tip switch change
-  void detectionInterrupt();
+  bool detectSleeveConnection();
   
   // reset interrupt debounce counter
   void resetDetectionDebounce();
@@ -84,43 +84,43 @@ public:
   
   // detects the type of pedal that is connected
   void analyzePedalType();
-
+  
   // returns common interface MIDI channel
   int getCommonMidiChannel();
-
+  
   // sets the common MIDI channel
   void setCommonMidiChannel(int channel);
-
+  
   // adds a TRS audio jack with detection switches
   void addAudioJack(int pdt, int pdr, int pds, int pt, int pr, int ps);
-
+  
   // pedal type for testing purpoes
   int test_pedaltype = 0;
-
+  
   int index = 0;
 
 private:
   // store (and set) mode according to index
   int _storeMode(int mode_set);
-
+  
   // go back to previous mode
   void _revertMode();
-
+  
   // uses the tip connection switch to detect a plugged-in audio connector
   void _checkConnection();
-
+  
   // interface common MIDI channel
   int _midi_channel = 0;
-
+  
   // modes; 1 = detection, 2 = sustain, 2 = expression
   int _mode = NULL;
-
+  
   // last mode to detect actual mode changes
   int _mode_last = NULL;
-
+  
   // debounce counter
   int _detection_debounce = 0;
-
+  
   // presence of audio connector
   bool _insert_state = false;
 };

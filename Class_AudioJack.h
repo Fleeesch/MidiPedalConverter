@@ -32,7 +32,7 @@ public:
 
   // constructor covering all pins
   AudioJack(int pdt, int pdr, int pds, int pt, int pr, int ps);
-
+  
   // pin configuration
   void setupDetection();
   void setupSustain();
@@ -48,7 +48,8 @@ public:
   int getControlVoltageSignal();
   bool getSustainTestSignal();
   bool testForControlVoltage();
-  
+  bool getPluckSignal();
+
   // pin mode
   void setPinMode(int pin, int mode);
 

@@ -14,6 +14,9 @@
 #include "Class_Pedal.h"
 #include "Class_MidiHandler.h"
 
+#define EXPRESSION_PEDAL_LOW 50
+#define EXPRESSION_PEDAL_HIGH 1000
+
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 //  Constructor
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -63,27 +66,20 @@ private:
   // last calculated value (float for the purpose of slow interpolation)
   float _value_last = 0;
   
+  // target value
   int _value_target = 0;
-
+  
   // last target value, for delta calculation
   int _target_last = 0;
-  
-  // state of timeout (true = hysteresis active)
-  bool _timeout = true;
-  
-  // ticks for the timeout to turn on
-  const int _timeout_ticks = 10000;
-  
-  // timeout counter
-  int _timeout_counter = 0;
-  
-  // timeout threshold (value difference to deactivate timeout)
-  const int _timeout_threshold = 2;
   
   // last midi value
   int _last_midi_value_msb = 0;
   int _last_midi_value_lsb = 0;
   
+  long _last_direction_millis = 0;
+  bool _last_direction = false;
+  const int _direction_timeout = 2;
+
 };
 
 #endif
