@@ -25,7 +25,7 @@ public:
 
   // constructor with pedal interface reference
   Pedal(PedalInterface *p_interface);
-  
+
   // linked pedal interface
   PedalInterface *pedal_interface;
 
@@ -44,14 +44,8 @@ public:
 
   virtual bool midiIsGo();
   
-  // 14 bit activation
-  bool is_14bit = false;
-
-  // set to 14 bit method
-  void setTo14Bit(bool state) { is_14bit = state; };
-
   // ignore midi messages on reset
-  const int midi_message_dismiss_time = 1000;
+  const int midi_message_dismiss_time = SETTING_PEDAL_MIDI_DELAY;
   long init_millis = 0;
 
   // midi is allowed to run
