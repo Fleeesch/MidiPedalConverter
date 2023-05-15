@@ -88,48 +88,90 @@ int AudioJack::getControlVoltageSignal()
 bool AudioJack::testForControlVoltage()
 {
 
-  // predeclare last analog read for initial comparison
-  int a_read = 1023;
-  int a_read_last = a_read;
+  // pointers to interface and its jack
+  PedalInterface *p_int;
+  AudioJack *jack;
 
-  int volt = VOLTAGE_GENERATOR->getVoltage();
-
-  // test multiple times...
-  for (int i = 0; i < 100; i++)
+  // go through pedals
+  for (int i = 0; i < PedalInterface::lookup_index; i++)
   {
 
-    // get even / uneven iteration index state
-    int mod_val = i % 2;
+    // get jack of interace
+    p_int = PedalInterface::lookup[i];
+    jack = p_int->audio_jack;
 
-    // toggle voltage between high and low
-    VOLTAGE_GENERATOR->setState(mod_val);
-
-    // store last analog signal
-    a_read_last = a_read;
-
-    // store current analog signal
-    a_read = analogRead(_pin_tip);
-
-    // voltage is 0V and signal has fallen? Everything ok, skip...
-    if (mod_val == 0 && a_read_last > a_read)
-      continue;
-
-    // voltage is 5V and signal has risen? Everything ok, skip...
-    if (mod_val == 1 && a_read_last < a_read)
-      continue;
-
-    // restore previous voltage setting
-    VOLTAGE_GENERATOR->setState(volt);
-
-    // voltage stayed the same, return test as failed
-    return false;
+    // set jack to GND
+    jack->setupGND();
   }
 
-  // activate voltage generator once again
-  VOLTAGE_GENERATOR->setState(true);
+  for (int i = 0; i < PedalInterface::lookup_index; i++)
+  {
+    // get pedal interface
+    p_int = PedalInterface::lookup[i];
 
-  // return test as a success
-  return true;
+    // get jack
+    jack = p_int->audio_jack;
+
+    // skip itself, or if there's no audio jack
+    if (!jack || jack == this)
+      continue;
+
+    // startup values for analog read signal
+    int a_read = 1023;
+    int a_read_last = a_read;
+
+    // fail indicator
+    bool fail = false;
+
+    // do the handshake test
+    for (int i = 0; i < 100; i++)
+    {
+
+      // get even / uneven iteration index state
+      int mod_val = i % 2;
+      
+      // set to 5V / GND depending on index even number
+      if (!mod_val)
+        jack->setupGND();
+      else
+        jack->setup5V();
+      
+      // stabilization delay
+      delayMicroseconds(5);
+      
+      // store last analog signal
+      a_read_last = a_read;
+      
+      // store current analog signal
+      a_read = analogRead(_pin_tip);
+      
+      // voltage is 0V and signal has fallen? Everything ok, skip...
+      if (mod_val == 0 && a_read_last > a_read)
+        continue;
+      
+      // voltage is 5V and signal has risen? Everything ok, skip...
+      if (mod_val == 1 && a_read_last < a_read)
+        continue;
+
+      // fail, skip test
+      fail = true;
+      break;
+    }
+    
+    // test was a success?
+    if (!fail)
+    {
+      // set mode to voltage source
+      p_int->setModeVoltageSource();
+      return true;
+    }
+    
+    // check for interface failed, load last jack configuration
+    p_int->applyCurrentMode();
+  }
+  
+  // all tests failed, no 5V connection
+  return false;
 };
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -139,38 +181,7 @@ bool AudioJack::testForControlVoltage()
 bool AudioJack::getSustainTestSignal()
 {
 
-  // tolerance threshold
-  int thresh = 2;
-
-  // boundary values
-  int min_val = 1023;
-  int max_val = 0;
-
-  // store voltage generator
-  int voltage = VOLTAGE_GENERATOR->getVoltage();
-
-  // do several checkup to check for value spread
-  for (int i = 0; i < 100; i++)
-  {
-
-    // read sensor
-    int a_read = analogRead(_pin_tip);
-
-    // expand boundaries
-    min_val = min(min_val, a_read);
-    max_val = max(max_val, a_read);
-
-    // randomly enbale / disable voltage generator to create noise
-    VOLTAGE_GENERATOR->setState(random(1));
-
-    delayMicroseconds(100);
-  }
-
-  // restore voltage generator state
-  VOLTAGE_GENERATOR->setVoltage(voltage);
-
-  // check if value is above threshold
-  return (max_val - min_val) > thresh;
+  return digitalRead(_pin_sleeve);
 };
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -229,8 +240,8 @@ void AudioJack::setupSustainTest()
 {
 
   setPinMode(_pin_tip, PINMODE_ANALOG);
-  setPinMode(_pin_ring, PINMODE_GND);
-  setPinMode(_pin_sleeve, PINMODE_GND);
+  setPinMode(_pin_ring, PINMODE_5V);
+  setPinMode(_pin_sleeve, PINMODE_DIGITAL);
 };
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -241,6 +252,30 @@ void AudioJack::setupDead()
 {
 
   setPinMode(_pin_tip, PINMODE_ANALOG);
+  setPinMode(_pin_ring, PINMODE_GND);
+  setPinMode(_pin_sleeve, PINMODE_GND);
+};
+
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+//  Method : Setup 5V
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+void AudioJack::setup5V()
+{
+
+  setPinMode(_pin_tip, PINMODE_5V);
+  setPinMode(_pin_ring, PINMODE_GND);
+  setPinMode(_pin_sleeve, PINMODE_GND);
+};
+
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+//  Method : Setup GND
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+void AudioJack::setupGND()
+{
+
+  setPinMode(_pin_tip, PINMODE_GND);
   setPinMode(_pin_ring, PINMODE_GND);
   setPinMode(_pin_sleeve, PINMODE_GND);
 };

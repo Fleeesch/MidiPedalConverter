@@ -29,7 +29,7 @@ public:
   AudioJack();
 
   int main(){};
-
+  
   // constructor covering all pins
   AudioJack(int pdt, int pdr, int pds, int pt, int pr, int ps);
   
@@ -40,7 +40,9 @@ public:
   void setupControlVoltage();
   void setupSustainTest();
   void setupDead();
-
+  void setup5V();
+  void setupGND();
+  
   // signal reading
   bool getDectectionSignal();
   bool getSustainSignal();

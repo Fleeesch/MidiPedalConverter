@@ -16,22 +16,17 @@
 # 16 "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\MidiPedalConverter.ino" 2
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-//  Globals
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 //  Setup
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 void setup()
 {
 
+  // initialize settings
+  Settings::init();
+
   // start midi communication
   MIDI.begin(0);
-
-  // setup voltage generator
-  VOLTAGE_GENERATOR = new VoltageGenerator(38);
-  VOLTAGE_GENERATOR->setState(false);
 
   // setup pedal interfaces
   for (int i = 0; i < INTERFACES_COUNT; i++)
@@ -42,11 +37,33 @@ void setup()
     {
 
     case 0:
-      p_interfaces[i]->addAudioJack(22, 24, 25, A0, 23, 0);
+      p_interfaces[i]->addAudioJack(
+          27,
+          25,
+          23,
+          A0,
+          24,
+          22);
       break;
 
     case 1:
-      p_interfaces[i]->addAudioJack(30, 32, 33, A1, 31, 0);
+      p_interfaces[i]->addAudioJack(
+          37,
+          35,
+          33,
+          A1,
+          34,
+          32);
+      break;
+
+    case 2:
+      p_interfaces[i]->addAudioJack(
+          47,
+          45,
+          43,
+          A2,
+          44,
+          42);
       break;
 
     default:
@@ -113,6 +130,7 @@ void setup()
   // ::::::::::::::::::
   //    MIDI Mode
   // ::::::::::::::::::
+
   if (!test_mode)
   {
 
@@ -137,6 +155,17 @@ void setup()
 void loop()
 {
 
+  int time_delta = micros() - MICROS_LAST;
+
+  if (LOOP_TIME_MIN && time_delta < LOOP_TIME_MIN)
+  {
+    delayMicroseconds(LOOP_TIME_MIN - time_delta);
+  }
+
+  // ::::::::::::::::::
+  //    Test Mode
+  // ::::::::::::::::::
+
   if (test_mode)
   {
 
@@ -151,11 +180,30 @@ void loop()
     return;
   }
 
+  // ::::::::::::::::::
+  //    MIDI Mode
+  // ::::::::::::::::::
+
   // go through pedal interfaces, do routines
   for (int i = 0; i < INTERFACES_COUNT; i++)
   {
     p_interfaces[i]->routine();
   }
+
+  // ::::::::::::::::::
+  //    Settings
+  // ::::::::::::::::::
+
+  // only call settings after certain amount of iterations
+  if (!(LOOP_COUNTER % SETTING_CALL_ITERATIONS))
+    Settings::update();
+
+  // increment / reset loop counter
+  if (LOOP_COUNTER++ >= 10000000)
+    LOOP_COUNTER = 0;
+
+  // store time
+  MICROS_LAST = micros();
 }
 # 1 "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\Class_AudioJack.ino"
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
@@ -248,48 +296,90 @@ int AudioJack::getControlVoltageSignal()
 bool AudioJack::testForControlVoltage()
 {
 
-  // predeclare last analog read for initial comparison
-  int a_read = 1023;
-  int a_read_last = a_read;
+  // pointers to interface and its jack
+  PedalInterface *p_int;
+  AudioJack *jack;
 
-  int volt = VOLTAGE_GENERATOR->getVoltage();
-
-  // test multiple times...
-  for (int i = 0; i < 100; i++)
+  // go through pedals
+  for (int i = 0; i < PedalInterface::lookup_index; i++)
   {
 
-    // get even / uneven iteration index state
-    int mod_val = i % 2;
+    // get jack of interace
+    p_int = PedalInterface::lookup[i];
+    jack = p_int->audio_jack;
 
-    // toggle voltage between high and low
-    VOLTAGE_GENERATOR->setState(mod_val);
-
-    // store last analog signal
-    a_read_last = a_read;
-
-    // store current analog signal
-    a_read = analogRead(_pin_tip);
-
-    // voltage is 0V and signal has fallen? Everything ok, skip...
-    if (mod_val == 0 && a_read_last > a_read)
-      continue;
-
-    // voltage is 5V and signal has risen? Everything ok, skip...
-    if (mod_val == 1 && a_read_last < a_read)
-      continue;
-
-    // restore previous voltage setting
-    VOLTAGE_GENERATOR->setState(volt);
-
-    // voltage stayed the same, return test as failed
-    return false;
+    // set jack to GND
+    jack->setupGND();
   }
 
-  // activate voltage generator once again
-  VOLTAGE_GENERATOR->setState(true);
+  for (int i = 0; i < PedalInterface::lookup_index; i++)
+  {
+    // get pedal interface
+    p_int = PedalInterface::lookup[i];
 
-  // return test as a success
-  return true;
+    // get jack
+    jack = p_int->audio_jack;
+
+    // skip itself, or if there's no audio jack
+    if (!jack || jack == this)
+      continue;
+
+    // startup values for analog read signal
+    int a_read = 1023;
+    int a_read_last = a_read;
+
+    // fail indicator
+    bool fail = false;
+
+    // do the handshake test
+    for (int i = 0; i < 100; i++)
+    {
+
+      // get even / uneven iteration index state
+      int mod_val = i % 2;
+
+      // set to 5V / GND depending on index even number
+      if (!mod_val)
+        jack->setupGND();
+      else
+        jack->setup5V();
+
+      // stabilization delay
+      delayMicroseconds(5);
+
+      // store last analog signal
+      a_read_last = a_read;
+
+      // store current analog signal
+      a_read = analogRead(_pin_tip);
+
+      // voltage is 0V and signal has fallen? Everything ok, skip...
+      if (mod_val == 0 && a_read_last > a_read)
+        continue;
+
+      // voltage is 5V and signal has risen? Everything ok, skip...
+      if (mod_val == 1 && a_read_last < a_read)
+        continue;
+
+      // fail, skip test
+      fail = true;
+      break;
+    }
+
+    // test was a success?
+    if (!fail)
+    {
+      // set mode to voltage source
+      p_int->setModeVoltageSource();
+      return true;
+    }
+
+    // check for interface failed, load last jack configuration
+    p_int->applyCurrentMode();
+  }
+
+  // all tests failed, no 5V connection
+  return false;
 };
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -299,38 +389,7 @@ bool AudioJack::testForControlVoltage()
 bool AudioJack::getSustainTestSignal()
 {
 
-  // tolerance threshold
-  int thresh = 2;
-
-  // boundary values
-  int min_val = 1023;
-  int max_val = 0;
-
-  // store voltage generator
-  int voltage = VOLTAGE_GENERATOR->getVoltage();
-
-  // do several checkup to check for value spread
-  for (int i = 0; i < 100; i++)
-  {
-
-    // read sensor
-    int a_read = analogRead(_pin_tip);
-
-    // expand boundaries
-    min_val = ((min_val)<(a_read)?(min_val):(a_read));
-    max_val = ((max_val)>(a_read)?(max_val):(a_read));
-
-    // randomly enbale / disable voltage generator to create noise
-    VOLTAGE_GENERATOR->setState(random(1));
-
-    delayMicroseconds(100);
-  }
-
-  // restore voltage generator state
-  VOLTAGE_GENERATOR->setVoltage(voltage);
-
-  // check if value is above threshold
-  return (max_val - min_val) > thresh;
+  return digitalRead(_pin_sleeve);
 };
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -389,8 +448,8 @@ void AudioJack::setupSustainTest()
 {
 
   setPinMode(_pin_tip, 4);
-  setPinMode(_pin_ring, 1);
-  setPinMode(_pin_sleeve, 1);
+  setPinMode(_pin_ring, 0);
+  setPinMode(_pin_sleeve, 2);
 };
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -401,6 +460,30 @@ void AudioJack::setupDead()
 {
 
   setPinMode(_pin_tip, 4);
+  setPinMode(_pin_ring, 1);
+  setPinMode(_pin_sleeve, 1);
+};
+
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+//  Method : Setup 5V
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+void AudioJack::setup5V()
+{
+
+  setPinMode(_pin_tip, 0);
+  setPinMode(_pin_ring, 1);
+  setPinMode(_pin_sleeve, 1);
+};
+
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+//  Method : Setup GND
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+void AudioJack::setupGND()
+{
+
+  setPinMode(_pin_tip, 1);
   setPinMode(_pin_ring, 1);
   setPinMode(_pin_sleeve, 1);
 };
@@ -786,10 +869,6 @@ void PedalExpression::reset()
 
   _last_midi_value_msb = 0;
   _last_midi_value_lsb = 0;
-
-  _last_direction_millis = millis();
-  _last_direction = false;
-
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -800,10 +879,13 @@ void PedalExpression::routine()
 {
   // midi initialisation
   if (!midiIsGo())
-    ;
+    return;
+
+  // store last target value
+  _target_last = _value_target;
 
   // store sensor input
-  int _value_target = pedal_interface->audio_jack->getExpressionSignal();
+  _value_target = pedal_interface->audio_jack->getExpressionSignal();
 
   // recalculate boundaries
   _value_min = ((_value_target + 1)<(_value_min)?(_value_target + 1):(_value_min));
@@ -812,50 +894,87 @@ void PedalExpression::routine()
   // rescale using minimal and maximal values
   _value_target = map(_value_target, _value_min, _value_max, 0, 1023);
 
-
-
-  // : : : : : : : : : : : : : : :
-  //  Poti Debouncing
-  // : : : : : : : : : : : : : : :
-
-  // check for last direction change to the negative
-  if (!_last_direction && _value_target > _target_last)
-  {
-
-    // store direction change data
-    _last_direction = true;
-    _last_direction_millis = millis();
-
-    // direction chagne to fast? skip rest of code
-    if (_last_direction_millis < _direction_timeout)
-    {
-      return;
-    }
-  }
-
-  // check for last direction change to the positive
-  if (_last_direction && _value_target < _target_last)
-  {
-
-    // store direction change data
-    _last_direction = false;
-    _last_direction_millis = millis();
-
-    // direction chagne to fast? skip rest of code
-    if (_last_direction_millis < _direction_timeout)
-    {
-      return;
-    }
-  }
-
-  // store last target value
-  _target_last = _value_target;
+  // handle freeze, keep old value if it still applies
+  if (!_escapeFreeze() || _applyFreeze())
+    _value_target = _target_last;
 
   // interpolate from last value
-  _value_last += (_value_target - _value_last) * _interpolation_factor;
+  _value_last += (_value_target - _value_last) * Settings::MIDI_INTERPOLATION;
 
   // send midi
   sendMidi(((_value_last)>=0?(long)((_value_last)+0.5):(long)((_value_last)-0.5)));
+}
+
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+//  Method : Escape Freeze
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+bool PedalExpression::_escapeFreeze()
+{
+
+  // don't do anything if threre's no freeze
+  if (!_freeze)
+    return true;
+
+  // check if freeze threshold has been breached
+  if (((_value_target - _freeze_value)>0?(_value_target - _freeze_value):-(_value_target - _freeze_value)) > _FREEZE_THRESHOLD)
+  {
+
+    // turn of freeze
+    _freeze = false;
+
+    // max out delta to prevent re-freezing
+    _value_delta = _VALUE_DELTA_CAP;
+
+    // zero out  following delta increment
+    _target_last = _value_target;
+
+    // freeze escaped!
+    return true;
+  }
+  else
+  {
+    // still stuck in freeze
+    return false;
+  }
+}
+
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+//  Method : Calculate Delta
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+bool PedalExpression::_applyFreeze()
+{
+
+  // calculate delta, boost via factor to keep it floating for a short time
+  _value_delta += (_value_target - _target_last) * 2;
+
+  // increment delta if negative
+  if (_value_delta < 0)
+    _value_delta++;
+
+  // decrement delta if positive
+  if (_value_delta > 0)
+    _value_delta--;
+
+  // keep delta within limit (no excessive delta floating)
+  _value_delta = ((((_value_delta)>(-_VALUE_DELTA_CAP)?(_value_delta):(-_VALUE_DELTA_CAP)))<(_VALUE_DELTA_CAP)?(((_value_delta)>(-_VALUE_DELTA_CAP)?(_value_delta):(-_VALUE_DELTA_CAP))):(_VALUE_DELTA_CAP));
+
+  // delta is to low, indicating no movement?
+  if (((_value_delta)>0?(_value_delta):-(_value_delta)) < _VALUE_DELTA_THRESHOLD)
+  {
+    // freeze
+    _freeze = true;
+
+    // store point where freeze happened
+    _freeze_value = _value_target;
+
+    // freeze happened!
+    return true;
+  }
+
+  // no freeze happened
+  return false;
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -870,7 +989,7 @@ void PedalExpression::sendMidi(int value)
     return;
 
   // send either 7 or 14 bit
-  if (!is_14bit)
+  if (!Settings::MIDI_USE_14BIT) // if (!Settings::MIDI_USE_14BIT)
   {
     sendMidi7Bit(value >> 3); // 7 bit message, downsample source value
   }
@@ -912,15 +1031,11 @@ void PedalExpression::sendMidi14Bit(int lsb, int msb)
 
   // send lsb
   if (_last_midi_value_lsb != lsb || _last_midi_value_msb != msb)
-  {
     MidiHandler::sendToAllPorts(getStatusMessage(), getControlChangeLSB(), lsb);
-  }
 
   // send msb
   if (_last_midi_value_msb != msb)
-  {
     MidiHandler::sendToAllPorts(getStatusMessage(), getControlChange(), msb);
-  }
 
   _last_midi_value_msb = msb;
   _last_midi_value_lsb = lsb;
@@ -1053,7 +1168,10 @@ void PedalInterface::routine()
   }
 
   // pedal routine only
-  pedal->routine();
+  if (pedal)
+  {
+    pedal->routine();
+  }
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -1079,6 +1197,12 @@ void PedalInterface::setModeDetection()
 
   // store mode
   _storeMode(1);
+
+  // reset pedal if there is one
+  if (pedal)
+  {
+    pedal->reset();
+  }
 
   // configure IO
   audio_jack->setupDetection();
@@ -1159,6 +1283,30 @@ void PedalInterface::setModeControlVoltage()
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+//  Method : Set Mode to Control Voltage
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+void PedalInterface::setModeVoltageSource()
+{
+
+  if (_mode == 5)
+    return;
+
+  _storeMode(5);
+  audio_jack->setup5V();
+
+  // reset pedal
+  pedal = 
+# 256 "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\Class_PedalInterface.ino" 3 4
+         __null
+# 256 "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\Class_PedalInterface.ino"
+             ;
+
+  // apply automtic MIDI channels
+  PedalInterface::automaticMidiChannel();
+}
+
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 //  Method : Set Mode by Index
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 
@@ -1202,10 +1350,26 @@ int PedalInterface::_storeMode(int mode_set)
 //  Method : Revert Mode
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 
-void PedalInterface::_revertMode()
+void PedalInterface::revertMode()
 {
-
+  // use stored mode index
   setModeByIndex(_mode_last);
+}
+
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+//  Method : Apply Current Mode
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+void PedalInterface::applyCurrentMode()
+{
+  // save current mode
+  int m = _mode;
+
+  // reset mode number, forcing a mode change
+  _mode = 0;
+
+  // apply mode
+  setModeByIndex(m);
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -1238,20 +1402,6 @@ void PedalInterface::_checkConnection()
 
 void PedalInterface::analyzePedalType()
 {
-
-  // [!] this one's a hack since pedal-type detection is not working reliably
-
-  switch (index){
-    case 0:
-      setModeSustain();
-    break;
-    case 1:
-      setModeExpression();
-    break;
-
-  }
-
-  return; // ---> Skip the Rest
 
   audio_jack->setupControlVoltage();
 
@@ -1377,8 +1527,6 @@ void PedalInterface::sendMidiInfoMessage(int message)
 
     break;
   }
-
-
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -1423,7 +1571,6 @@ void PedalInterface::printPedalData(int index)
     break;
   // print control voltage signal
   case 2:
-    VOLTAGE_GENERATOR->setState(1);
     audio_jack->setupControlVoltage();
     Serial.print("CV, ");
     Serial.print(audio_jack->getControlVoltageSignal());
@@ -1532,6 +1679,90 @@ void PedalSustain::sendMidi(bool state)
     MidiHandler::sendToAllPorts(getStatusMessage(), getControlChange(), 0x7F); // send MIDI - Sustain On
   else
     MidiHandler::sendToAllPorts(getStatusMessage(), getControlChange(), 0x00); // send MIDI - Sustain Off
+}
+# 1 "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\Class_Settings.ino"
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//  Class : Settings
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+
+# 8 "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\Class_Settings.ino" 2
+
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+//  Method : Initialization
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+// 14 bit
+bool Settings::MIDI_USE_14BIT = false;
+
+// interpolation
+float Settings::MIDI_INTERPOLATION = 0.5;
+int Settings::M_INT_LAST = -1;
+
+bool Settings::M_INT_FREEZE = false;
+int Settings::M_INT_FREEZE_PNT = 0;
+
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+//  Method : Init
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+void Settings::init()
+{
+
+  // 14 bit setting pin
+  pinMode(8, 0x2);
+  digitalWrite(8, 0x1);
+
+  pinMode(A8, 0x0);
+  digitalWrite(A8, 0x0);
+  analogRead(A8);
+
+  // update settings once
+  Settings::update();
+}
+
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+//  Method : Update
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+void Settings::update()
+{
+
+  // :::::::::::::::::::::::::::::::::::
+  //    14 Bit
+
+  // store 14 bit setting
+  Settings::MIDI_USE_14BIT = !digitalRead(8);
+
+  // :::::::::::::::::::::::::::::::::::
+  //    Interpolation Setting
+
+  // interpolation
+  int interpolation_read = analogRead(A8);
+
+  // check for stable signal
+  if (interpolation_read == Settings::M_INT_LAST)
+  {
+    Settings::M_INT_FREEZE = true; // freeze interpolation
+    Settings::M_INT_FREEZE_PNT = interpolation_read; // store value point
+  }
+
+  // reset freeze if threshold is breached
+  if (Settings::M_INT_FREEZE && ((interpolation_read - Settings::M_INT_FREEZE_PNT)>0?(interpolation_read - Settings::M_INT_FREEZE_PNT):-(interpolation_read - Settings::M_INT_FREEZE_PNT)) > M_INT_CHANGE_THRESH)
+  {
+    M_INT_FREEZE = false;
+  }
+
+  // calculate interpolation value
+  if (!Settings::M_INT_FREEZE)
+  {
+    Settings::MIDI_INTERPOLATION = pow(analogRead(A8) / 1024.0, 4) * (1.0 - INTERPOLATION_RAISE) + INTERPOLATION_RAISE;
+  }
+
+  // store last interpolation point
+  Settings::M_INT_LAST = interpolation_read;
+
 }
 # 1 "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\Class_VoltageGenerator.ino"
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =

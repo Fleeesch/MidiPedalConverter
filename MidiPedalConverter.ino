@@ -15,22 +15,17 @@
 #include "MidiPedalConverter.h"
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-//  Globals
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 //  Setup
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 void setup()
 {
-  
+
+  // initialize settings
+  Settings::init();
+
   // start midi communication
   MIDI.begin(MIDI_CHANNEL_OMNI);
-  
-  // setup voltage generator
-  VOLTAGE_GENERATOR = new VoltageGenerator(PIN_V_GENERATOR_TIP);
-  VOLTAGE_GENERATOR->setState(false);
 
   // setup pedal interfaces
   for (int i = 0; i < INTERFACES_COUNT; i++)
@@ -41,18 +36,40 @@ void setup()
     {
 
     case 0:
-      p_interfaces[i]->addAudioJack(PIN_INTERFACE_0_TIP_DETECT, PIN_INTERFACE_0_RING_DETECT, PIN_INTERFACE_0_SLEEVE_DETECT, PIN_INTERFACE_0_TIP, PIN_INTERFACE_0_RING, 0);
+      p_interfaces[i]->addAudioJack(
+          PIN_INTERFACE_0_TIP_DETECT,
+          PIN_INTERFACE_0_RING_DETECT,
+          PIN_INTERFACE_0_SLEEVE_DETECT,
+          PIN_INTERFACE_0_TIP,
+          PIN_INTERFACE_0_RING,
+          PIN_INTERFACE_0_SLEEVE);
       break;
 
     case 1:
-      p_interfaces[i]->addAudioJack(PIN_INTERFACE_1_TIP_DETECT, PIN_INTERFACE_1_RING_DETECT, PIN_INTERFACE_1_SLEEVE_DETECT, PIN_INTERFACE_1_TIP, PIN_INTERFACE_1_RING, 0);
+      p_interfaces[i]->addAudioJack(
+          PIN_INTERFACE_1_TIP_DETECT,
+          PIN_INTERFACE_1_RING_DETECT,
+          PIN_INTERFACE_1_SLEEVE_DETECT,
+          PIN_INTERFACE_1_TIP,
+          PIN_INTERFACE_1_RING,
+          PIN_INTERFACE_1_SLEEVE);
+      break;
+
+    case 2:
+      p_interfaces[i]->addAudioJack(
+          PIN_INTERFACE_2_TIP_DETECT,
+          PIN_INTERFACE_2_RING_DETECT,
+          PIN_INTERFACE_2_SLEEVE_DETECT,
+          PIN_INTERFACE_2_TIP,
+          PIN_INTERFACE_2_RING,
+          PIN_INTERFACE_2_SLEEVE);
       break;
 
     default:
       p_interfaces[i]->addAudioJack(0, 0, 0, 0, 0, 0);
       break;
     }
-    
+
     p_interfaces[i]->setModeDetection();
   }
 
@@ -112,13 +129,14 @@ void setup()
   // ::::::::::::::::::
   //    MIDI Mode
   // ::::::::::::::::::
+
   if (!test_mode)
   {
 
     // create MIDI Din5 port, add to lookup list
     midi_port_jack = new MidiPortSerial(Serial);
     MidiHandler::addPort(midi_port_jack);
-    
+
     // create MIDI USB port, add to lookup list
     midi_port_usb = new MidiPortUsb();
     MidiHandler::addPort(midi_port_usb);
@@ -126,7 +144,7 @@ void setup()
     Serial.begin(31250);
   }
 
-  delay(1000);
+  delay(SETTING_STARTUP_DELAY);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -135,6 +153,17 @@ void setup()
 
 void loop()
 {
+
+  int time_delta = micros() - MICROS_LAST;
+
+  if (LOOP_TIME_MIN && time_delta < LOOP_TIME_MIN)
+  {
+    delayMicroseconds(LOOP_TIME_MIN - time_delta);
+  }
+
+  // ::::::::::::::::::
+  //    Test Mode
+  // ::::::::::::::::::
 
   if (test_mode)
   {
@@ -150,9 +179,28 @@ void loop()
     return;
   }
 
+  // ::::::::::::::::::
+  //    MIDI Mode
+  // ::::::::::::::::::
+
   // go through pedal interfaces, do routines
   for (int i = 0; i < INTERFACES_COUNT; i++)
   {
     p_interfaces[i]->routine();
   }
+
+  // ::::::::::::::::::
+  //    Settings
+  // ::::::::::::::::::
+
+  // only call settings after certain amount of iterations
+  if (!(LOOP_COUNTER % SETTING_CALL_ITERATIONS))
+    Settings::update();
+
+  // increment / reset loop counter
+  if (LOOP_COUNTER++ >= 10000000)
+    LOOP_COUNTER = 0;
+
+  // store time
+  MICROS_LAST = micros();
 }

@@ -20,6 +20,7 @@ C:\root\int\developement\arduino\MidiPedalConverter\build\sketch\MidiPedalConver
  C:\Users\F\Documents\Arduino\libraries\MIDI_Library\src/midi_Message.h \
  C:\Users\F\Documents\Arduino\libraries\MIDI_Library\src/serialMIDI.h \
  C:\Users\F\Documents\Arduino\libraries\MIDI_Library\src/MIDI.hpp \
+ C:\root\int\developement\arduino\MidiPedalConverter\build\sketch\Class_Settings.h \
  C:\root\int\developement\arduino\MidiPedalConverter\build\sketch\Class_MidiHandler.h \
  C:\root\int\developement\arduino\MidiPedalConverter\build\sketch\Class_MidiPort.h \
  C:\root\int\developement\arduino\MidiPedalConverter\build\sketch\Class_PedalInterface.h \

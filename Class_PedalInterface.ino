@@ -125,7 +125,10 @@ void PedalInterface::routine()
   }
 
   // pedal routine only
-  pedal->routine();
+  if (pedal)
+  {
+    pedal->routine();
+  }
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -151,6 +154,12 @@ void PedalInterface::setModeDetection()
 
   // store mode
   _storeMode(MODE_DETECTION);
+
+  // reset pedal if there is one
+  if (pedal)
+  {
+    pedal->reset();
+  }
 
   // configure IO
   audio_jack->setupDetection();
@@ -221,10 +230,30 @@ void PedalInterface::setModeControlVoltage()
 
   _storeMode(MODE_CONTROL_VOLTAGE);
   audio_jack->setupControlVoltage();
-  
+
   // redirect pedal
   pedal = &pedal_expression;
   pedal->reset();
+
+  // apply automtic MIDI channels
+  PedalInterface::automaticMidiChannel();
+}
+
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+//  Method : Set Mode to Control Voltage
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+void PedalInterface::setModeVoltageSource()
+{
+
+  if (_mode == MODE_VOLTAGE_SOURCE)
+    return;
+
+  _storeMode(MODE_VOLTAGE_SOURCE);
+  audio_jack->setup5V();
+
+  // reset pedal
+  pedal = NULL;
 
   // apply automtic MIDI channels
   PedalInterface::automaticMidiChannel();
@@ -274,10 +303,26 @@ int PedalInterface::_storeMode(int mode_set)
 //  Method : Revert Mode
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 
-void PedalInterface::_revertMode()
+void PedalInterface::revertMode()
 {
-
+  // use stored mode index
   setModeByIndex(_mode_last);
+}
+
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+//  Method : Apply Current Mode
+// ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+
+void PedalInterface::applyCurrentMode()
+{
+  // save current mode
+  int m = _mode;
+
+  // reset mode number, forcing a mode change
+  _mode = 0;
+
+  // apply mode
+  setModeByIndex(m);
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -310,27 +355,13 @@ void PedalInterface::_checkConnection()
 
 void PedalInterface::analyzePedalType()
 {
-  
-  // [!] this one's a hack since pedal-type detection is not working reliably
-  
-  switch (index){
-    case 0:
-      setModeSustain();
-    break;
-    case 1:
-      setModeExpression();
-    break;
-  
-  }
-  
-  return; // ---> Skip the Rest
-  
+
   audio_jack->setupControlVoltage();
-  
+
   // check for volume pedal
   if (audio_jack->testForControlVoltage())
   {
-    
+
     // Pedal is Volume Pedal
     setModeControlVoltage();
     return; // -> Skip Rest
@@ -449,8 +480,6 @@ void PedalInterface::sendMidiInfoMessage(int message)
 
     break;
   }
-  
-  
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -495,7 +524,6 @@ void PedalInterface::printPedalData(int index)
     break;
   // print control voltage signal
   case 2:
-    VOLTAGE_GENERATOR->setState(1);
     audio_jack->setupControlVoltage();
     Serial.print("CV, ");
     Serial.print(audio_jack->getControlVoltageSignal());
