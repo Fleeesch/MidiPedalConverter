@@ -8,6 +8,7 @@
 #define Class_PedalExpression_h
 
 #include <Arduino.h>
+#include "Class_Settings.h"
 #include "MidiPedalConverter.h"
 #include "Class_PedalInterface.h"
 #include "Class_Pedal.h"
@@ -40,7 +41,7 @@ public:
   
   // reset values
   void reset();
-
+  
   // get control change
   virtual int getControlChange()
   {
@@ -53,6 +54,13 @@ public:
   };
 
 private:
+  
+  // tries to escape freeze, true on success
+  bool _escapeFreeze();
+  
+  // calculates delta, true on freeze trigger
+  bool _applyFreeze();
+  
   // interpolation factor (0.0 - 1.0, smaller = slower)
   float _interpolation_factor = 0.1;
   
@@ -75,9 +83,23 @@ private:
   int _last_midi_value_msb = 0;
   int _last_midi_value_lsb = 0;
   
-  long _last_direction_millis = 0;
-  bool _last_direction = false;
-  const int _direction_timeout = 2;
+  // value delta
+  int _value_delta = 0;
+  
+  // value delta threshold for causing a freeze (smaller > slower reaction)
+  const int _VALUE_DELTA_THRESHOLD = 40;
+  
+  // maximum delta value (limits excessive freeze blocking)
+  const int _VALUE_DELTA_CAP = 1000;
+  
+  // freeze = true -> do nothing until value escapes feeze point
+  bool _freeze = false;
+  
+  // freez point value, gets stored during freeze trigger
+  int _freeze_value = 0;
+  
+  // threshold for freeze escape in analog value distance
+  const int _FREEZE_THRESHOLD = 3;
 
 };
 
