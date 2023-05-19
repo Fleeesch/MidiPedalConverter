@@ -44,7 +44,7 @@ public:
   virtual int getControlChangeLSB() { return 32; };
 
   virtual bool midiIsGo();
-
+  
   // ignore midi messages on reset
   const int midi_message_dismiss_time = SETTING_PEDAL_MIDI_DELAY;
   long init_millis = 0;

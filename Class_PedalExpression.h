@@ -100,6 +100,9 @@ private:
   
   // threshold for freeze escape in analog value distance
   const int _FREEZE_THRESHOLD = 3;
+  
+  // last sent message microsecond timestamp
+  unsigned long _last_sent_micros = 0;
 
 };
 

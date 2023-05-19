@@ -869,6 +869,8 @@ void PedalExpression::reset()
 
   _last_midi_value_msb = 0;
   _last_midi_value_lsb = 0;
+
+  _last_sent_micros = 0;
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -984,6 +986,10 @@ bool PedalExpression::_applyFreeze()
 void PedalExpression::sendMidi(int value)
 {
 
+  if (((micros() - _last_sent_micros)>0?(micros() - _last_sent_micros):-(micros() - _last_sent_micros)) < 2000){
+    return;
+  }
+
   // skip if not enough time has passed since initialization
   if (!midi_is_go)
     return;
@@ -1016,6 +1022,9 @@ void PedalExpression::sendMidi7Bit(int msb)
 
   // store sent midi value
   _last_midi_value_msb = msb;
+
+  // store microseconds
+  _last_sent_micros = micros();
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -1039,6 +1048,9 @@ void PedalExpression::sendMidi14Bit(int lsb, int msb)
 
   _last_midi_value_msb = msb;
   _last_midi_value_lsb = lsb;
+
+  // store microseconds
+  _last_sent_micros = micros();
 }
 # 1 "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\Class_PedalInterface.ino"
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =

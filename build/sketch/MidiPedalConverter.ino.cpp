@@ -869,6 +869,8 @@ void PedalExpression::reset()
 
   _last_midi_value_msb = 0;
   _last_midi_value_lsb = 0;
+
+  _last_sent_micros = 0;
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -983,11 +985,15 @@ bool PedalExpression::_applyFreeze()
 
 void PedalExpression::sendMidi(int value)
 {
-
+  
+  if (abs(micros() - _last_sent_micros) < SETTING_MIDI_MESSAGE_TIMEOUT){
+    return;
+  }
+  
   // skip if not enough time has passed since initialization
   if (!midi_is_go)
     return;
-
+  
   // send either 7 or 14 bit
   if (!Settings::MIDI_USE_14BIT) // if (!Settings::MIDI_USE_14BIT)
   {
@@ -1016,6 +1022,9 @@ void PedalExpression::sendMidi7Bit(int msb)
 
   // store sent midi value
   _last_midi_value_msb = msb;
+  
+  // store microseconds
+  _last_sent_micros = micros();
 }
 
 // ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -1024,21 +1033,24 @@ void PedalExpression::sendMidi7Bit(int msb)
 
 void PedalExpression::sendMidi14Bit(int lsb, int msb)
 {
-
+  
   // limit values
   msb = min(max(msb, 0), 127);
   lsb = min(max(lsb, 0), 127);
-
+  
   // send lsb
   if (_last_midi_value_lsb != lsb || _last_midi_value_msb != msb)
     MidiHandler::sendToAllPorts(getStatusMessage(), getControlChangeLSB(), lsb);
-
+  
   // send msb
   if (_last_midi_value_msb != msb)
     MidiHandler::sendToAllPorts(getStatusMessage(), getControlChange(), msb);
-
+  
   _last_midi_value_msb = msb;
   _last_midi_value_lsb = lsb;
+
+  // store microseconds
+  _last_sent_micros = micros();
 }
 #line 1 "C:\\root\\int\\developement\\arduino\\MidiPedalConverter\\Class_PedalInterface.ino"
 // = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =

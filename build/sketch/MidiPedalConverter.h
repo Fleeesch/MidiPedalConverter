@@ -63,6 +63,9 @@
 // midi start delay after pedal initialization
 #define SETTING_PEDAL_MIDI_DELAY 1000
 
+// timeout between messages in mecroseconds
+#define SETTING_MIDI_MESSAGE_TIMEOUT 2000
+
 // minimum microseconds between loop iterations
 const int LOOP_TIME_MIN = 100;
 
@@ -70,6 +73,8 @@ const int LOOP_TIME_MIN = 100;
 const int SETTING_CALL_ITERATIONS = 10;
 
 const float INTERPOLATION_RAISE = 0.01;
+
+
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 //  INcludes
